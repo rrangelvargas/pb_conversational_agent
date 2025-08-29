@@ -83,8 +83,8 @@ class ProjectReprocessor:
                     continue
                 
                         # Analyze project with balanced classifier
-        result = self.moral_classifier.classify_moral_foundations(description)
-                
+                result = self.moral_classifier.classify_moral_foundations(description)
+                        
                 if "error" in result:
                     print(f"Warning: Failed to analyze project '{project.get('name', 'Unknown')}': {result['error']}")
                     error_count += 1
@@ -114,7 +114,7 @@ class ProjectReprocessor:
                 # Show progress
                 if processed_count % 10 == 0:
                     print(f"   Processed {processed_count}/{len(self.projects_df)} projects")
-                
+        
             except Exception as e:
                 error_count += 1
                 print_error(f"Failed to process project '{project.get('name', 'Unknown')}': {e}")
@@ -219,7 +219,7 @@ def main():
     """
     Main function to reprocess projects with final balance.
     """
-            print("Balanced Moral Value Classification Reprocessor")
+    print("Balanced Moral Value Classification Reprocessor")
     print("=" * 65)
     
     # Initialize reprocessor
