@@ -4,6 +4,85 @@ import glob
 from pathlib import Path
 from typing import Dict, List, Tuple, Optional
 import argparse
+import re
+
+def translate_project_name(polish_name: str) -> str:
+    """
+    Translate Polish project names to English.
+    This is a basic translation mapping for common terms.
+    """
+    # Common Polish to English translations for PB project terms
+    translations = {
+        'remonty': 'renovations',
+        'zniszczonych': 'damaged',
+        'chodników': 'sidewalks',
+        'więcej': 'more',
+        'zieleni': 'greenery',
+        'kontynuacja': 'continuation',
+        'rewitalizacja': 'revitalization',
+        'starych': 'old',
+        'podwórek': 'courtyards',
+        'nasadzenia': 'plantings',
+        'parku': 'park',
+        'powstańców': 'uprising',
+        'warszawy': 'warsaw',
+        'zielone': 'green',
+        'przystanki': 'stops',
+        'czytamy': 'we read',
+        'wsparcie': 'support',
+        'bibliotek': 'libraries',
+        'modernizacja': 'modernization',
+        'skateparku': 'skatepark',
+        'edwarda': 'edward',
+        'szymańskiego': 'szymanski',
+        'aed-y': 'aed devices',
+        'naturalne': 'natural',
+        'robinsonowy': 'robinson-style',
+        'plac zabaw': 'playground',
+        'warszawie': 'warsaw',
+        'zapobieganie': 'prevention',
+        'bezdomności': 'homelessness',
+        'zwierząt': 'animals',
+        'kulturalna': 'cultural',
+        'cykl': 'cycle',
+        'bezpłatnych': 'free',
+        'wydarzeń': 'events',
+        'zajęć': 'activities',
+        'warsztaty': 'workshops',
+        'udzielania': 'providing',
+        'pierwszej pomocy': 'first aid',
+        'uczniów': 'students',
+        'szkół': 'schools',
+        'podstawowych': 'primary',
+        'rodzicu': 'parent',
+        'zadbaj': 'take care',
+        'zdrowie': 'health',
+        'psychiczne': 'mental',
+        'dzieci': 'children',
+        'korepetycje': 'tutoring',
+        'zatrzymaj się': 'stop',
+        'zobacz': 'see',
+        'spotkania': 'meetings',
+        'motywacyjno-wspierające': 'motivational-supportive',
+        'młodzieży': 'youth',
+        'przewijaki': 'changing tables',
+        'schodki': 'steps',
+        'przedszkolaków': 'preschoolers',
+        'akcja': 'action',
+        'rozdawania': 'distributing',
+        'zestawów': 'sets',
+        'rko': 'cpr',
+        'maseczki': 'masks',
+        'rękawiczki': 'gloves'
+    }
+    
+    translated = polish_name
+    for polish, english in translations.items():
+        # Use case-insensitive replacement
+        pattern = re.compile(re.escape(polish), re.IGNORECASE)
+        translated = pattern.sub(english, translated)
+    
+    return translated
 
 def parse_pb_file(file_path: str) -> Tuple[Dict, Dict, Dict]:
     """
@@ -181,6 +260,100 @@ def combine_data(data_list: List[Tuple[Dict, Dict, Dict]], file_names: List[str]
     
     return combined_meta, combined_projects, combined_votes
 
+def combine_poland_warszawa_files(output_dir: str = "data/parsed/poland_warszawa_combined"):
+    """
+    Special function to combine all Poland Warsaw PB files into single CSV files.
+    Handles duplicates properly and adds translated project names.
+    """
+    print("🔍 Finding all Poland Warsaw PB files...")
+    
+    # Find all Poland Warsaw files
+    pattern = "data/raw/poland_warszawa*.pb"
+    matching_files = glob.glob(pattern)
+    
+    if not matching_files:
+        print(f"❌ No Poland Warsaw files found matching pattern: {pattern}")
+        return
+    
+    print(f"✅ Found {len(matching_files)} Poland Warsaw files:")
+    for file in sorted(matching_files):
+        print(f"  - {file}")
+    
+    # Create output directory
+    output_path = Path(output_dir)
+    output_path.mkdir(parents=True, exist_ok=True)
+    
+    # Parse all files
+    all_data = []
+    file_names = []
+    
+    print(f"\n📖 Parsing {len(matching_files)} files...")
+    for file_path in sorted(matching_files):
+        print(f"  Parsing {Path(file_path).name}...")
+        meta, projects, votes = parse_pb_file(file_path)
+        all_data.append((meta, projects, votes))
+        file_names.append(file_path)
+        
+        print(f"    Projects: {len(projects)}, Votes: {len(votes)}")
+    
+    # Combine data
+    print(f"\n🔗 Combining data from {len(matching_files)} files...")
+    combined_meta, combined_projects, combined_votes = combine_data(all_data, file_names)
+    
+    print(f"📊 Combined results:")
+    print(f"  Total projects: {len(combined_projects)}")
+    print(f"  Total votes: {len(combined_votes)}")
+    
+    # Add translated project names
+    print(f"\n🌐 Adding translated project names...")
+    for project_id, project_data in combined_projects.items():
+        if 'name' in project_data:
+            polish_name = project_data['name']
+            translated_name = translate_project_name(polish_name)
+            project_data['name_translated'] = translated_name
+    
+    # Save combined CSV files
+    print(f"\n💾 Saving combined CSV files...")
+    
+    # Save metadata in new format (one row per file)
+    metadata_file = output_path / 'metadata.csv'
+    save_metadata_combined_to_csv([data[0] for data in all_data], file_names, metadata_file)
+    print(f"✅ Saved combined metadata to {metadata_file}")
+    
+    if combined_projects:
+        projects_file = output_path / 'projects.csv'
+        save_projects_to_csv(combined_projects, projects_file)
+        print(f"✅ Saved {len(combined_projects)} combined projects to {projects_file}")
+    
+    if combined_votes:
+        votes_file = output_path / 'votes.csv'
+        save_votes_to_csv(combined_votes, votes_file)
+        print(f"✅ Saved {len(combined_votes)} combined votes to {votes_file}")
+    
+    # Create summary report
+    summary_file = output_path / 'summary.txt'
+    with open(summary_file, 'w', encoding='utf-8') as f:
+        f.write("POLAND WARSAW PB FILES COMBINATION SUMMARY\n")
+        f.write("=" * 50 + "\n\n")
+        f.write(f"Total files processed: {len(matching_files)}\n")
+        f.write(f"Total unique projects: {len(combined_projects)}\n")
+        f.write(f"Total unique voters: {len(combined_votes)}\n\n")
+        
+        f.write("Files processed:\n")
+        for file_name in sorted(file_names):
+            f.write(f"  - {Path(file_name).name}\n")
+        
+        f.write(f"\nOutput directory: {output_path}\n")
+        f.write("Generated files:\n")
+        f.write("  - projects.csv (all projects with translated names)\n")
+        f.write("  - votes.csv (all votes)\n")
+        f.write("  - metadata.csv (metadata from all files)\n")
+        f.write("  - summary.txt (this file)\n")
+    
+    print(f"📋 Summary report saved to {summary_file}")
+    print(f"\n🎉 Successfully combined all Poland Warsaw PB files!")
+    print(f"📁 Output directory: {output_path}")
+
 def parse_single_file(input_file: str, output_dir: str):
     """Parse a single PB file and create CSV files."""
     print(f"Parsing single file: {input_file}")
@@ -291,10 +464,15 @@ def main():
     parser.add_argument('--file', '-f', type=str, help='Single .pb file to parse')
     parser.add_argument('--pattern', '-p', type=str, help='Pattern to match multiple files (e.g., "warszawa" for data/raw/*warszawa*.pb)')
     parser.add_argument('--output', '-o', type=str, default='data/parsed', help='Output directory for CSV files')
+    parser.add_argument('--combine-warszawa', action='store_true', help='Combine all Poland Warsaw PB files into single CSV files')
     
     args = parser.parse_args()
     
-    if args.file:
+    if args.combine_warszawa:
+        # Special case: combine all Poland Warsaw files
+        combine_poland_warszawa_files(args.output)
+        
+    elif args.file:
         # Parse single file
         if not os.path.exists(args.file):
             print(f"Error: File {args.file} not found")
@@ -310,17 +488,16 @@ def main():
         parse_multiple_files(args.pattern, args.output)
         
     else:
-        # Default: parse the main file
-        default_file = 'data/raw/poland_warszawa_2023_.pb'
-        if os.path.exists(default_file):
-            output_dir = Path(args.output) / 'poland_warszawa_2023'
-            parse_single_file(default_file, output_dir)
-        else:
-            print("No file specified and default file not found.")
-            print("Use --file to parse a single file or --pattern to parse multiple files.")
-            print("Example:")
-            print("  python parse_pb_file.py --file data/raw/example.pb")
-            print("  python parse_pb_file.py --pattern warszawa")
+        # Default: show help and suggest the new combine-warszawa option
+        print("No file specified and default file not found.")
+        print("Use one of these options:")
+        print("  --combine-warszawa    Combine all Poland Warsaw PB files into single CSV files")
+        print("  --file <file>         Parse a single .pb file")
+        print("  --pattern <pattern>   Parse multiple files matching pattern")
+        print("\nExamples:")
+        print("  python parse_pb_file.py --combine-warszawa")
+        print("  python parse_pb_file.py --file data/raw/example.pb")
+        print("  python parse_pb_file.py --pattern warszawa")
 
 if __name__ == "__main__":
     main() 

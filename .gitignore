@@ -208,3 +208,23 @@ __marimo__/
 
 # Data files
 data/
+
+# Model files and training artifacts
+moral_value_model*/
+logs*/
+*.pth
+*.pt
+*.bin
+*.safetensors
+
+# Training checkpoints and outputs
+checkpoints/
+outputs/
+runs/
+tensorboard_logs/
+
+# Results and analysis outputs
+results/
+
+# Models
+models/

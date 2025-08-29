@@ -1,5 +1,8 @@
 """
-Conversational Agent for Project Recommendation based on Moral Values and Preferences.
+Moral Value-Based Conversational Agent for Participatory Budget Project Recommendations
+
+This agent uses Jonathan Haidt's Moral Foundations Theory to analyze user input
+and recommend participatory budget projects that align with their moral values.
 """
 
 import pandas as pd
@@ -9,35 +12,34 @@ from typing import List, Dict, Tuple, Optional
 import warnings
 from collections import Counter
 
-from moral_value_extractor import MoralValueExtractor
-from constants import MORAL_FOUNDATION_KEYWORDS, GENERAL_VALUE_KEYWORDS
+from moral_value_classifier import MoralValueClassifier
+from constants import MORAL_FOUNDATIONS
+from utils import load_csv_data, print_success, print_error, print_info
 
 warnings.filterwarnings('ignore')
 
-class ProjectRecommendationAgent:
+class MoralValueProjectRecommender:
     """
-    A conversational agent that recommends projects based on user's moral values and preferences.
+    A conversational agent that recommends participatory budget projects based on 
+    users' moral values detected through Moral Foundations Theory analysis.
     """
     
-    def __init__(self, votes_csv_path: str, projects_csv_path: str):
+    def __init__(self, projects_csv_path: str = "data/generated/content.csv"):
         """
-        Initialize the recommendation agent.
+        Initialize the moral value-based project recommender.
         
         Args:
-            votes_csv_path: Path to the votes CSV file
             projects_csv_path: Path to the projects CSV file
         """
-        self.votes_csv_path = votes_csv_path
         self.projects_csv_path = projects_csv_path
         
         # Load data
-        print("🔄 Loading voting data and projects...")
-        self.votes_df = pd.read_csv(votes_csv_path)
-        self.projects_df = pd.read_csv(projects_csv_path)
+        print_info("Loading participatory budget projects...")
+        self.projects_df = load_csv_data(projects_csv_path)
         
-        # Initialize moral value extractor
-        print("🔄 Initializing moral value extractor...")
-        self.moral_extractor = MoralValueExtractor()
+        # Initialize moral value classifier
+        print_info("Loading moral value classification model...")
+        self.moral_classifier = MoralValueClassifier("moral_foundations")
         
         # Create project mapping
         self.projects_dict = self.projects_df.set_index('project_id').to_dict('index')
@@ -45,12 +47,51 @@ class ProjectRecommendationAgent:
         # Get available categories
         self.available_categories = sorted(self.projects_df['category'].unique())
         
-        print(f"✅ Agent initialized with {len(self.votes_df)} votes and {len(self.projects_df)} projects")
-        print(f"📊 Available categories: {', '.join(self.available_categories)}")
+        # Get moral foundation names from constants
+        self.moral_foundation_names = [foundation["name"] for foundation in MORAL_FOUNDATIONS.values()]
+        
+        print_success(f"Agent initialized with {len(self.projects_df)} projects")
+        print_info(f"Available categories: {', '.join(self.available_categories)}")
+        print_info(f"Using Moral Foundations Theory: {', '.join(self.moral_foundation_names)}")
     
-    def extract_user_preferences(self, user_input: str) -> Dict:
+    def analyze_user_moral_values(self, user_input: str) -> Dict:
         """
-        Extract user preferences from conversational input.
+        Analyze user input to extract moral values using Moral Foundations Theory.
+        
+        Args:
+            user_input: User's conversational input
+            
+        Returns:
+            Dictionary containing moral foundation analysis
+        """
+        print(f"\nAnalyzing user input: '{user_input}'")
+        
+        # Use the moral value classifier
+        result = self.moral_classifier.classify_moral_foundations(user_input)
+        
+        if "error" in result:
+            print_error(f"Failed to analyze moral values: {result['error']}")
+            return {}
+        
+        print(f"Detected moral values:")
+        print(f"   Dominant Foundation: {result['dominant_foundation']}")
+        print(f"   Confidence: {result['confidence']:.3f}")
+        if result.get('secondary_foundation'):
+            print(f"   Secondary Foundation: {result['secondary_foundation']} ({result['secondary_confidence']:.3f})")
+        print(f"   Analysis: {result['analysis']}")
+        
+        # Show top 3 foundation scores
+        all_scores = result['all_foundation_scores']
+        sorted_scores = sorted(all_scores.items(), key=lambda x: x[1], reverse=True)[:3]
+        print(f"   Top Foundations:")
+        for foundation, score in sorted_scores:
+            print(f"      • {foundation}: {score:.3f}")
+        
+        return result
+    
+    def extract_project_preferences(self, user_input: str) -> Dict:
+        """
+        Extract project preferences from user input.
         
         Args:
             user_input: User's conversational input
@@ -58,23 +99,26 @@ class ProjectRecommendationAgent:
         Returns:
             Dictionary containing extracted preferences
         """
-        print(f"\n🔍 Analyzing user input: '{user_input}'")
+        # Store user input for category matching
+        self.current_user_input = user_input
         
-        # Extract moral values
-        moral_scores = self.moral_extractor.extract_values(user_input, threshold=0.1)
-        print(f"📊 Detected moral values: {list(moral_scores.keys())}")
+        # Analyze moral values
+        moral_analysis = self.analyze_user_moral_values(user_input)
         
         # Extract category preferences using keyword matching
         category_preferences = self._extract_category_preferences(user_input)
-        print(f"🏷️  Detected category preferences: {category_preferences}")
         
-        # Extract demographic info if mentioned
-        demographics = self._extract_demographics(user_input)
+        # Extract demographic targets if mentioned
+        demographic_targets = self._extract_demographic_targets(user_input)
+        
+        # Extract cost preferences if mentioned
+        cost_preferences = self._extract_cost_preferences(user_input)
         
         return {
-            'moral_values': moral_scores,
+            'moral_values': moral_analysis,
             'category_preferences': category_preferences,
-            'demographics': demographics,
+            'demographic_targets': demographic_targets,
+            'cost_preferences': cost_preferences,
             'raw_input': user_input
         }
     
@@ -83,292 +127,339 @@ class ProjectRecommendationAgent:
         text_lower = text.lower()
         preferences = []
         
-        # Define keywords for each category with better health vs environment distinction
+        # Define keywords for each category
         category_keywords = {
-            'Environment, public health & safety': {
-                'health_focus': ['health', 'wellness', 'medical', 'healthcare', 'safety', 'well-being'],
-                'environment_focus': ['environment', 'green', 'clean', 'renewable', 'pollution', 'climate', 'sustainability'],
-                'general': ['public', 'safety']
-            },
-            'Culture & community': ['culture', 'community', 'social', 'people', 'together', 'unity', 'diversity', 'heritage'],
-            'Education': ['education', 'learning', 'school', 'students', 'knowledge', 'training', 'skills', 'academic'],
-            'Facilities, parks & recreation': ['facilities', 'parks', 'recreation', 'playground', 'sports', 'leisure', 'entertainment'],
-            'Streets, Sidewalks & Transit': ['streets', 'sidewalks', 'transit', 'transportation', 'walking', 'biking', 'roads', 'infrastructure'],
-            'Streets': ['streets', 'roads', 'traffic', 'pavement', 'streetlights'],
-            'Sidewalks & Transit': ['sidewalks', 'walking', 'transit', 'public transport', 'buses', 'trains']
+            "Education": ['education', 'learning', 'school', 'students', 'training', 'skills', 'knowledge'],
+            "Health": ['health', 'healthcare', 'medical', 'wellness', 'fitness', 'mental health', 'care'],
+            "Environment, public health & safety": ['environment', 'environmental', 'safety', 'health', 'pollution', 'air quality', 'green'],
+            "Facilities, parks & recreation": ['parks', 'recreation', 'facilities', 'playground', 'sports', 'fitness', 'leisure'],
+            "Streets, Sidewalks & Transit": ['streets', 'sidewalks', 'transit', 'transportation', 'traffic', 'walking', 'biking'],
+            "urban greenery": ['greenery', 'trees', 'plants', 'green space', 'nature', 'forest', 'garden'],
+            "sport": ['sports', 'athletics', 'fitness', 'exercise', 'training', 'competition'],
+            "public space": ['public space', 'plaza', 'square', 'gathering', 'community space'],
+            "public transit and roads": ['transit', 'roads', 'transportation', 'buses', 'trains', 'infrastructure'],
+            "welfare": ['welfare', 'social services', 'support', 'assistance', 'help', 'community'],
+            "environmental protection": ['environmental protection', 'conservation', 'sustainability', 'climate', 'wildlife', 'environment', 'environmental'],
+            "culture": ['culture', 'cultural', 'arts', 'heritage', 'tradition', 'creative'],
+            "Culture & community": ['community', 'culture', 'social', 'neighborhood', 'togetherness']
         }
         
-        # Special handling for Environment, public health & safety category
-        env_health_category = 'Environment, public health & safety'
-        if env_health_category in category_keywords:
-            env_health_keywords = category_keywords[env_health_category]
-            
-            # Check if user mentions health more than environment
-            health_count = sum(1 for keyword in env_health_keywords['health_focus'] if keyword in text_lower)
-            env_count = sum(1 for keyword in env_health_keywords['environment_focus'] if keyword in text_lower)
-            
-            if health_count > env_count:
-                # User focuses on health - add this category
-                preferences.append(env_health_category)
-            elif env_count > 0:
-                # User focuses on environment - add this category
-                preferences.append(env_health_category)
-            elif any(keyword in text_lower for keyword in env_health_keywords['general']):
-                # User mentions general safety/public - add this category
-                preferences.append(env_health_category)
-        
-        # Check other categories
         for category, keywords in category_keywords.items():
-            if category != env_health_category:  # Skip the one we already handled
-                if any(keyword in text_lower for keyword in keywords):
-                    preferences.append(category)
+            if any(keyword in text_lower for keyword in keywords):
+                preferences.append(category)
         
         return preferences
     
-    def _extract_demographics(self, text: str) -> Dict:
-        """Extract demographic information from text."""
+    def _extract_demographic_targets(self, text: str) -> List[str]:
+        """Extract demographic targets from text."""
         text_lower = text.lower()
-        demographics = {}
+        targets = []
         
-        # Age extraction
-        age_keywords = ['young', 'old', 'elderly', 'senior', 'youth', 'teen', 'adult', 'middle-aged']
-        for keyword in age_keywords:
-            if keyword in text_lower:
-                if keyword in ['young', 'youth', 'teen']:
-                    demographics['age_group'] = 'young'
-                elif keyword in ['old', 'elderly', 'senior']:
-                    demographics['age_group'] = 'senior'
-                elif keyword in ['adult', 'middle-aged']:
-                    demographics['age_group'] = 'adult'
-                break
+        demographic_keywords = {
+            "children": ['children', 'kids', 'youth', 'young', 'students', 'school age'],
+            "youth": ['youth', 'teenagers', 'adolescents', 'young people', 'students'],
+            "adults": ['adults', 'working age', 'professionals', 'parents'],
+            "seniors": ['seniors', 'elderly', 'older adults', 'retired', 'aging'],
+            "people with disabilities": ['disabilities', 'disabled', 'accessibility', 'inclusive', 'special needs']
+        }
         
-        # Education extraction
-        education_keywords = ['college', 'university', 'graduate', 'high school', 'phd', 'degree']
-        for keyword in education_keywords:
-            if keyword in text_lower:
-                demographics['education'] = keyword
-                break
+        for target, keywords in demographic_keywords.items():
+            if any(keyword in text_lower for keyword in keywords):
+                targets.append(target)
         
-        # Gender extraction
-        gender_keywords = ['male', 'female', 'man', 'woman', 'boy', 'girl']
-        for keyword in gender_keywords:
-            if keyword in text_lower:
-                demographics['sex'] = keyword
-                break
-        
-        return demographics
+        return targets
     
-    def find_similar_voters(self, user_preferences: Dict, top_k: int = 50) -> pd.DataFrame:
+    def _extract_cost_preferences(self, text: str) -> Dict:
+        """Extract cost preferences from text."""
+        text_lower = text.lower()
+        preferences = {}
+        
+        # Check for cost-related keywords
+        if any(word in text_lower for word in ['expensive', 'high cost', 'budget', 'affordable', 'cheap', 'low cost']):
+            if any(word in text_lower for word in ['expensive', 'high cost']):
+                preferences['cost_preference'] = 'high'
+            elif any(word in text_lower for word in ['affordable', 'cheap', 'low cost']):
+                preferences['cost_preference'] = 'low'
+            else:
+                preferences['cost_preference'] = 'any'
+        
+        return preferences
+    
+    def find_matching_projects(self, preferences: Dict, top_n: int = 5) -> List[Dict]:
         """
-        Find voters with similar preferences to the user.
+        Find projects that match the user's moral values and preferences.
         
         Args:
-            user_preferences: User's extracted preferences
-            top_k: Number of similar voters to find
+            preferences: User preferences including moral values
+            top_n: Number of top projects to return
             
         Returns:
-            DataFrame of similar voters
+            List of matching projects with scores
         """
-        print(f"\n🔍 Finding voters with similar preferences...")
+        if not preferences or 'moral_values' not in preferences:
+            return []
         
-        # Calculate similarity scores
-        similarity_scores = []
+        moral_analysis = preferences['moral_values']
+        if not moral_analysis or 'all_foundation_scores' not in moral_analysis:
+            return []
         
-        for idx, voter in self.votes_df.iterrows():
-            score = 0
-            
-            # Moral value similarity
-            if user_preferences['moral_values']:
-                user_top_moral = max(user_preferences['moral_values'].items(), key=lambda x: x[1])[0]
-                if voter['top_moral_value'] == user_top_moral:
-                    score += 3
-            
-            # Category similarity
-            user_categories = user_preferences['category_preferences']
-            voter_categories = [voter['top_category_1'], voter['top_category_2'], voter['top_category_3']]
-            
-            for user_cat in user_categories:
-                if user_cat in voter_categories:
-                    score += 2
-            
-            # Demographic similarity
-            demographics = user_preferences['demographics']
-            if demographics.get('age_group'):
-                if demographics['age_group'] == 'young' and voter['age'] < 30:
-                    score += 1
-                elif demographics['age_group'] == 'senior' and voter['age'] > 60:
-                    score += 1
-                elif demographics['age_group'] == 'adult' and 30 <= voter['age'] <= 60:
-                    score += 1
-            
-            if demographics.get('sex') and voter['sex']:
-                if demographics['sex'].lower() in str(voter['sex']).lower():
-                    score += 1
-            
-            similarity_scores.append((idx, score))
+        # Get moral foundation scores
+        user_moral_scores = moral_analysis['all_foundation_scores']
         
-        # Sort by similarity score and get top voters
-        similarity_scores.sort(key=lambda x: x[1], reverse=True)
-        top_voter_indices = [idx for idx, score in similarity_scores[:top_k]]
+        # Calculate project scores based on moral alignment
+        project_scores = []
         
-        similar_voters = self.votes_df.loc[top_voter_indices].copy()
-        similar_voters['similarity_score'] = [score for idx, score in similarity_scores[:top_k]]
+        for _, project in self.projects_df.iterrows():
+            # Start with moral alignment score
+            score = self._calculate_moral_alignment_score(project, user_moral_scores)
+            
+            # Apply category preference bonus
+            if preferences.get('category_preferences'):
+                if project['category'] in preferences['category_preferences']:
+                    score *= 1.2  # 20% bonus for category match
+            
+            # Apply demographic target bonus
+            if preferences.get('demographic_targets'):
+                project_targets = str(project.get('target', '')).split(',')
+                if any(target.strip() in preferences['demographic_targets'] for target in project_targets):
+                    score *= 1.1  # 10% bonus for demographic match
+            
+            # Apply cost preference bonus
+            if preferences.get('cost_preferences', {}).get('cost_preference') == 'low':
+                # Prefer lower cost projects
+                cost_factor = 1.0 / (1.0 + (project['cost'] / 1000000))  # Normalize by 1M
+                score *= cost_factor
+            elif preferences.get('cost_preferences', {}).get('cost_preference') == 'high':
+                # Prefer higher cost projects
+                cost_factor = 1.0 + (project['cost'] / 1000000)  # Normalize by 1M
+                score *= cost_factor
+            
+            project_scores.append({
+                'project_id': project['project_id'],
+                'name': project['name'],
+                'category': project['category'],
+                'cost': project['cost'],
+                'description': project['description'],
+                'target': project.get('target', ''),
+                'moral_value': project.get('moral_value', ''),
+                'score': score,
+                'moral_alignment': self._get_moral_alignment_explanation(project, user_moral_scores)
+            })
         
-        print(f"✅ Found {len(similar_voters)} similar voters")
-        return similar_voters
+        # Sort by score and return top N
+        project_scores.sort(key=lambda x: x['score'], reverse=True)
+        return project_scores[:top_n]
     
-    def get_project_recommendations(self, similar_voters: pd.DataFrame, top_k: int = 5) -> List[Dict]:
-        """
-        Get project recommendations based on similar voters.
+    def _calculate_moral_alignment_score(self, project: pd.Series, user_moral_scores: Dict) -> float:
+        """Calculate how well a project aligns with user's moral values with improved balance."""
+        score = 0.0
         
-        Args:
-            similar_voters: DataFrame of similar voters
-            top_k: Number of top projects to recommend
-            
-        Returns:
-            List of recommended projects with scores
-        """
-        print(f"\n🎯 Generating project recommendations...")
+        # Get project category
+        project_category = project.get('category', '').lower()
         
-        # Count project votes from similar voters
-        project_votes = Counter()
-        project_scores = {}
-        
-        for idx, voter in similar_voters.iterrows():
-            vote_str = voter['vote']
-            if pd.notna(vote_str):
-                project_ids = [int(pid.strip()) for pid in str(vote_str).split(',') if pid.strip().isdigit()]
+        # Check if project has moral foundation scores
+        for foundation_name in self.moral_foundation_names:
+            score_column = f'moral_score_{foundation_name}'
+            if score_column in project:
+                project_score = project[score_column]
+                user_score = user_moral_scores.get(foundation_name, 0.0)
                 
-                for project_id in project_ids:
-                    if project_id in self.projects_dict:
-                        project_votes[project_id] += 1
-                        
-                        # Weight by similarity score
-                        similarity = voter['similarity_score']
-                        if project_id not in project_scores:
-                            project_scores[project_id] = 0
-                        project_scores[project_id] += similarity
-        
-        # Get top projects
-        top_projects = []
-        for project_id, vote_count in project_votes.most_common(top_k * 2):  # Get more to filter
-            if project_id in self.projects_dict:
-                project_data = self.projects_dict[project_id]
+                # IMPROVED MORAL FOUNDATION SCORING
+                foundation_weight = 1.0
                 
-                # Calculate recommendation score
-                base_score = vote_count
-                similarity_bonus = project_scores.get(project_id, 0) / max(1, vote_count)
-                final_score = base_score + similarity_bonus
+                # Boost relevant foundations based on query type
+                if any(keyword in self._get_user_input_keywords().lower() for keyword in ['education', 'learning', 'school', 'teach', 'student', 'equal opportunities', 'opportunities']):
+                    # Education queries
+                    if foundation_name == 'Fairness/Cheating':
+                        foundation_weight = 1.8
+                    elif foundation_name == 'Liberty/Oppression':
+                        foundation_weight = 1.6
+                    elif foundation_name == 'Care/Harm':
+                        foundation_weight = 1.2
+                elif any(keyword in self._get_user_input_keywords().lower() for keyword in ['environment', 'environmental', 'sustainability', 'conservation', 'climate', 'wildlife', 'green']):
+                    # Environmental queries
+                    if foundation_name == 'Sanctity/Degradation':
+                        foundation_weight = 1.8  # Boost sanctity for environmental protection
+                    elif foundation_name == 'Care/Harm':
+                        foundation_weight = 1.6  # Boost care for environmental protection
+                    elif foundation_name == 'Authority/Subversion':
+                        foundation_weight = 1.4  # Boost authority for environmental regulation
                 
-                top_projects.append({
-                    'project_id': project_id,
-                    'name': project_data.get('name', 'Unknown'),
-                    'category': project_data.get('category', 'Unknown'),
-                    'description': project_data.get('description', 'No description'),
-                    'cost': project_data.get('cost', 'Unknown'),
-                    'vote_count': vote_count,
-                    'similarity_bonus': similarity_bonus,
-                    'final_score': final_score
-                })
+                # Calculate alignment with foundation weighting
+                if project_score > 0.7 and user_score > 0.4:
+                    alignment = project_score * user_score * 1.5 * foundation_weight
+                elif project_score > 0.5 and user_score > 0.3:
+                    alignment = project_score * user_score * 1.2 * foundation_weight
+                else:
+                    alignment = project_score * user_score * foundation_weight
+                
+                score += alignment
         
-        # Sort by final score and return top_k
-        top_projects.sort(key=lambda x: x['final_score'], reverse=True)
-        recommendations = top_projects[:top_k]
+        # CATEGORY BOOSTING - Give significant weight to category matching
+        category_boost = 1.0
         
-        print(f"✅ Generated {len(recommendations)} project recommendations")
-        return recommendations
+        # Education-related queries
+        if any(keyword in self._get_user_input_keywords().lower() for keyword in ['education', 'learning', 'school', 'teach', 'student', 'equal opportunities', 'opportunities']):
+            if 'education' in project_category:
+                category_boost = 2.5  # Major boost for education projects
+            elif any(edu_keyword in project_category for edu_keyword in ['culture', 'arts', 'music', 'science']):
+                category_boost = 1.8  # Good boost for related categories
+        
+        # Environmental-related queries
+        elif any(keyword in self._get_user_input_keywords().lower() for keyword in ['environment', 'environmental', 'sustainability', 'conservation', 'climate', 'wildlife', 'green']):
+            if any(env_keyword in project_category for env_keyword in ['environment', 'environmental', 'protection', 'sustainability']):
+                category_boost = 2.5  # Major boost for environmental projects
+            elif any(env_keyword in project_category for env_keyword in ['parks', 'greenery', 'nature', 'conservation']):
+                category_boost = 2.0  # Good boost for nature-related categories
+        
+        # Apply category boost
+        score *= category_boost
+        
+        # Add base score for having any moral foundation alignment
+        if score > 0:
+            score += 0.01  # Small base score to differentiate from zero
+        
+        return score
     
-    def chat_and_recommend(self, user_input: str) -> str:
+    def _get_user_input_keywords(self) -> str:
+        """Extract keywords from the most recent user input for category matching."""
+        # Store the user's input for category matching
+        if hasattr(self, 'current_user_input'):
+            return self.current_user_input
+        return ""
+    
+    def _get_moral_alignment_explanation(self, project: pd.Series, user_moral_scores: Dict) -> str:
+        """Generate explanation of moral alignment between project and user."""
+        alignments = []
+        
+        for foundation_name in self.moral_foundation_names:
+            score_column = f'moral_score_{foundation_name}'
+            if score_column in project:
+                project_score = project[score_column]
+                user_score = user_moral_scores.get(foundation_name, 0.0)
+                
+                if project_score > 0.5 and user_score > 0.3:
+                    alignments.append(f"Strong {foundation_name} alignment")
+                elif project_score > 0.3 and user_score > 0.2:
+                    alignments.append(f"Moderate {foundation_name} alignment")
+        
+        if alignments:
+            return "; ".join(alignments[:3])  # Top 3 alignments
+        else:
+            return "Limited moral alignment"
+    
+    def generate_recommendations(self, user_input: str, top_n: int = 5) -> Dict:
         """
-        Main conversational method that processes user input and returns recommendations.
+        Generate project recommendations based on user input.
         
         Args:
             user_input: User's conversational input
+            top_n: Number of top recommendations to return
             
         Returns:
-            Formatted response with recommendations
+            Dictionary containing recommendations and analysis
         """
-        # Extract user preferences
-        user_preferences = self.extract_user_preferences(user_input)
+        print(f"\nGenerating project recommendations...")
         
-        # Find similar voters
-        similar_voters = self.find_similar_voters(user_preferences)
+        # Extract preferences
+        preferences = self.extract_project_preferences(user_input)
         
-        # Get project recommendations
-        recommendations = self.get_project_recommendations(similar_voters)
+        # Find matching projects
+        matching_projects = self.find_matching_projects(preferences, top_n)
         
-        # Format response
-        response = self._format_recommendations(user_preferences, recommendations)
+        # Generate recommendation summary
+        if matching_projects:
+            dominant_foundation = preferences['moral_values'].get('dominant_foundation', 'Unknown')
+            print_success(f"Found {len(matching_projects)} projects matching your {dominant_foundation} values!")
+        else:
+            print_error("No projects found matching your preferences.")
         
-        return response
+        return {
+            'preferences': preferences,
+            'recommendations': matching_projects,
+            'total_projects_analyzed': len(self.projects_df)
+        }
     
-    def _format_recommendations(self, user_preferences: Dict, recommendations: List[Dict]) -> str:
-        """Format the recommendations into a readable response."""
+    def chat_interface(self):
+        """
+        Interactive chat interface for the moral value-based project recommender.
+        """
+        print("Welcome to the Moral Value-Based Project Recommender!")
+        print("=" * 70)
+        print("I'll help you find participatory budget projects that align with your moral values.")
+        print("Tell me what's important to you, and I'll suggest relevant projects.")
+        print("\nExample inputs:")
+        print("   • 'I care about helping children and families in need'")
+        print("   • 'Environmental protection and sustainability are important to me'")
+        print("   • 'I want to support education and equal opportunities for everyone'")
+        print("   • 'Community safety and public health are my priorities'")
+        print("\nType 'quit' to exit.")
         
-        response = "🤖 **Project Recommendation Agent**\n\n"
-        
-        # User preferences summary
-        response += "📋 **Your Preferences:**\n"
-        if user_preferences['moral_values']:
-            top_moral = max(user_preferences['moral_values'].items(), key=lambda x: x[1])[0]
-            response += f"  • Primary moral value: {top_moral}\n"
-        
-        if user_preferences['category_preferences']:
-            response += f"  • Category interests: {', '.join(user_preferences['category_preferences'])}\n"
-        
-        if user_preferences['demographics']:
-            demo_str = ', '.join([f"{k}: {v}" for k, v in user_preferences['demographics'].items()])
-            response += f"  • Demographics: {demo_str}\n"
-        
-        response += "\n🎯 **Top 5 Project Recommendations:**\n\n"
-        
-        for i, project in enumerate(recommendations, 1):
-            response += f"{i}. **{project['name']}**\n"
-            response += f"   📍 Category: {project['category']}\n"
-            response += f"   💰 Cost: {project['cost']}\n"
-            response += f"   📝 Description: {project['description']}\n" # Changed to show full description
-            response += f"   ⭐ Score: {project['final_score']:.1f} (based on {project['vote_count']} similar votes)\n\n"
-        
-        response += "💡 *These recommendations are based on voters with similar moral values and preferences to yours.*"
-        
-        return response
+        while True:
+            try:
+                user_input = input("\nYou: ").strip()
+                
+                if user_input.lower() in ['quit', 'exit', 'q']:
+                    print("\nThank you for using the Moral Value-Based Project Recommender!")
+                    break
+                
+                if not user_input:
+                    continue
+                
+                # Generate recommendations
+                results = self.generate_recommendations(user_input, top_n=5)
+                
+                if results['recommendations']:
+                    print(f"\nTop {len(results['recommendations'])} Project Recommendations:")
+                    print("-" * 80)
+                    
+                    for i, project in enumerate(results['recommendations'], 1):
+                        print(f"\n{i}. {project['name']}")
+                        print(f"   Category: {project['category']}")
+                        print(f"   Cost: ${project['cost']:,}")
+                        print(f"   Target: {project['target']}")
+                        print(f"   Moral Alignment: {project['moral_alignment']}")
+                        print(f"   Match Score: {project['score']:.3f}")
+                        print(f"   Description: {project['description'][:150]}...")
+                
+                print(f"\nAnalyzed {results['total_projects_analyzed']} total projects")
+                
+            except KeyboardInterrupt:
+                print("\n\nGoodbye!")
+                break
+            except Exception as e:
+                print_error(f"Error processing your request: {e}")
+
 
 def main():
-    """Main function to run the conversational agent."""
-    print("🚀 Starting Project Recommendation Agent...")
+    """
+    Main function to demonstrate the moral value-based project recommender.
+    """
+    print("Moral Value-Based Project Recommender")
+    print("=" * 50)
     
-    # Initialize agent
-    agent = ProjectRecommendationAgent(
-        votes_csv_path='data/parsed/worldwide_mechanical-turk/votes.csv',
-        projects_csv_path='data/parsed/worldwide_mechanical-turk/projects.csv'
-    )
+    # Initialize the recommender
+    recommender = MoralValueProjectRecommender()
     
-    print("\n💬 Welcome! I'm your Project Recommendation Agent.")
-    print("Tell me about your values, interests, and what matters to you.")
-    print("I'll recommend projects that align with your preferences!")
-    print("\nType 'quit' to exit.\n")
+    # Test with a sample input
+    test_input = "I care about helping children and families in need, and environmental protection is important to me."
+    print(f"\nTesting with: '{test_input}'")
     
-    while True:
-        try:
-            user_input = input("You: ").strip()
-            
-            if user_input.lower() in ['quit', 'exit', 'bye']:
-                print("👋 Thanks for using the Project Recommendation Agent!")
-                break
-            
-            if not user_input:
-                continue
-            
-            # Get recommendations
-            response = agent.chat_and_recommend(user_input)
-            print(f"\n{response}\n")
-            
-        except KeyboardInterrupt:
-            print("\n👋 Goodbye!")
-            break
-        except Exception as e:
-            print(f"❌ Error: {e}")
-            print("Please try again or type 'quit' to exit.")
+    results = recommender.generate_recommendations(test_input, top_n=3)
+    
+    if results['recommendations']:
+        print(f"\nFound {len(results['recommendations'])} matching projects!")
+        print("\nTop recommendation:")
+        top_project = results['recommendations'][0]
+        print(f"{top_project['name']}")
+        print(f"   Category: {top_project['category']}")
+        print(f"   Moral Alignment: {top_project['moral_alignment']}")
+        print(f"   Match Score: {top_project['score']:.3f}")
+    
+    # Start interactive chat
+    print(f"\nStarting interactive chat interface...")
+    recommender.chat_interface()
+
 
 if __name__ == "__main__":
     main()

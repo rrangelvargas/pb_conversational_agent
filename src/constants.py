@@ -2,15 +2,45 @@
 Constants for the moral reasoning value extraction system.
 """
 
-# Moral Foundations Theory labels (common in moral reasoning)
-MORAL_FOUNDATIONS = [
-    "Care/Harm",
-    "Fairness/Cheating", 
-    "Loyalty/Betrayal",
-    "Authority/Subversion",
-    "Sanctity/Degradation",
-    "Liberty/Oppression"
-]
+# Comprehensive Moral Foundations Theory data structure
+MORAL_FOUNDATIONS = {
+    "care_harm": {
+        "name": "Care/Harm",
+        "description": "Promoting well-being and avoiding harm to others",
+        "positive_keywords": ["care", "protect", "nurture", "help", "compassion", "kindness", "empathy", "safety", "wellbeing", "heal", "comfort", "support"],
+        "negative_keywords": ["harm", "hurt", "damage", "injure", "abuse", "neglect", "cruelty", "violence", "suffering", "pain", "danger"]
+    },
+    "fairness_cheating": {
+        "name": "Fairness/Cheating",
+        "description": "Justice, equality, and fair treatment",
+        "positive_keywords": ["fair", "just", "equal", "rights", "justice", "honest", "truthful", "equitable", "impartial", "balanced", "deserved"],
+        "negative_keywords": ["unfair", "cheat", "lie", "deceive", "discriminate", "bias", "corrupt", "unjust", "unequal", "dishonest", "favoritism"]
+    },
+    "loyalty_betrayal": {
+        "name": "Loyalty/Betrayal",
+        "description": "Trust, commitment, and allegiance to groups",
+        "positive_keywords": ["loyal", "faithful", "trust", "commitment", "allegiance", "dedication", "devotion", "reliable", "steadfast", "patriotic", "teamwork"],
+        "negative_keywords": ["betray", "treason", "disloyal", "unfaithful", "traitor", "abandon", "desert", "backstab", "deceit", "treachery"]
+    },
+    "authority_subversion": {
+        "name": "Authority/Subversion",
+        "description": "Respect for legitimate authority and hierarchy",
+        "positive_keywords": ["authority", "respect", "obey", "leadership", "hierarchy", "command", "order", "discipline", "tradition", "custom", "rule"],
+        "negative_keywords": ["disobey", "rebel", "subvert", "disrespect", "defy", "chaos", "anarchy", "insubordination", "lawlessness", "disorder"]
+    },
+    "sanctity_degradation": {
+        "name": "Sanctity/Degradation",
+        "description": "Purity, sacredness, and spiritual values",
+        "positive_keywords": ["sacred", "pure", "holy", "spiritual", "divine", "revered", "blessed", "clean", "innocent", "virtuous", "noble"],
+        "negative_keywords": ["degrading", "vulgar", "profane", "corrupt", "impure", "sinful", "filthy", "defiled", "contaminated", "desecrated"]
+    },
+    "liberty_oppression": {
+        "name": "Liberty/Oppression",
+        "description": "Freedom, autonomy, and independence",
+        "positive_keywords": ["freedom", "liberty", "autonomy", "independence", "choice", "rights", "empower", "liberate", "self-determination", "sovereignty"],
+        "negative_keywords": ["oppress", "restrict", "control", "enslave", "dominate", "tyranny", "subjugate", "coerce", "force", "constrain"]
+    }
+}
 
 # Additional value categories
 VALUE_CATEGORIES = [
