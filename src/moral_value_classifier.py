@@ -7,9 +7,8 @@ and leveraging secondary moral foundations for project differentiation.
 
 import torch
 import numpy as np
-import pandas as pd
 from transformers import pipeline
-from typing import Dict, List, Tuple, Optional, Union
+from typing import Dict, List, Tuple, Optional
 import warnings
 import logging
 from constants import MORAL_FOUNDATIONS
@@ -32,12 +31,12 @@ class MoralValueClassifier:
         self.logger = logging.getLogger(__name__)
         
         # Load the model
-        self.logger.info(f"Loading balanced {model_type} model: facebook/bart-large-mnli")
+        self.logger.info(f"Loading balanced {model_type} model: roberta-large-mnli")
         
         try:
             self.classifier = pipeline(
                 "zero-shot-classification",
-                model="facebook/bart-large-mnli",
+                model="roberta-large-mnli",
                 device=0 if torch.cuda.is_available() else -1
             )
             self.logger.info("Successfully loaded balanced moral_foundations model")

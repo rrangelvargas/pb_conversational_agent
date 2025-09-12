@@ -8,7 +8,7 @@ import numpy as np
 import random
 from typing import List, Dict, Tuple
 import json
-from utils import save_csv_data, print_success, print_info, print_warning, print_separator
+from utils import save_csv_data, print_separator
 
 # Define all categories from both datasets
 ALL_CATEGORIES = [
@@ -874,7 +874,7 @@ def main():
     print("🚀 Generating comprehensive synthetic data...")
     
     # Generate projects
-    print_info("Generating synthetic projects...")
+    print("Generating synthetic projects...")
     projects = generate_synthetic_projects(1000)
     
     # Convert to DataFrame
@@ -894,7 +894,7 @@ def main():
     save_csv_data(projects_df, projects_file)
     
     # Generate voters
-    print_info("Generating synthetic voters...")
+    print("Generating synthetic voters...")
     voters = generate_synthetic_voters(2000)
     
     # Convert to DataFrame
@@ -906,11 +906,11 @@ def main():
     
     # Print summary
     print_separator("SYNTHETIC DATA GENERATION COMPLETE")
-    print_success(f"Generated {len(projects)} diverse synthetic projects")
-    print_success(f"Generated {len(voters)} diverse synthetic voters")
-    print_info(f"Categories represented: {projects_df['category'].nunique()}")
-    print_info(f"Projects saved to: {projects_file}")
-    print_info(f"Voters saved to: {voters_file}")
+    print(f"Generated {len(projects)} diverse synthetic projects")
+    print(f"Generated {len(voters)} diverse synthetic voters")
+    print(f"Categories represented: {projects_df['category'].nunique()}")
+    print(f"Projects saved to: {projects_file}")
+    print(f"Voters saved to: {voters_file}")
     
     # Show moral value distribution
     print("\n🧠 Moral values distribution:")

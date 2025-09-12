@@ -6,8 +6,7 @@ Common functions used across multiple scripts.
 import os
 import sys
 import pandas as pd
-import numpy as np
-from typing import List, Dict, Tuple, Optional
+from typing import Optional, Tuple
 import torch
 from transformers import AutoTokenizer, AutoModelForSequenceClassification
 
@@ -62,32 +61,6 @@ def save_csv_data(df: pd.DataFrame, file_path: str, index: bool = False) -> None
     except Exception as e:
         print(f"Error saving data: {e}")
 
-def check_dependencies(required_packages: List[str]) -> bool:
-    """
-    Check if all required packages are installed.
-    
-    Args:
-        required_packages: List of package names to check
-        
-    Returns:
-        True if all packages are available, False otherwise
-    """
-    missing_packages = []
-    
-    for package in required_packages:
-        try:
-            __import__(package)
-            print(f"{package}")
-        except ImportError:
-            missing_packages.append(package)
-            print(f"{package} - MISSING")
-    
-    if missing_packages:
-        print(f"\nMissing packages: {', '.join(missing_packages)}")
-        return False
-    
-            print("All required dependencies are available!")
-    return True
 
 def get_device() -> torch.device:
     """Get the best available device (CUDA if available, else CPU)."""
@@ -112,7 +85,7 @@ def load_model_and_tokenizer(model_path: str, device: Optional[torch.device] = N
         return None, None
     
     try:
-        print(f"📥 Loading model from: {model_path}")
+        print(f"Loading model from: {model_path}")
         tokenizer = AutoTokenizer.from_pretrained(model_path)
         model = AutoModelForSequenceClassification.from_pretrained(model_path)
         model.to(device)
@@ -168,21 +141,6 @@ def get_logs_directory() -> str:
     """Get the logs directory path."""
     return os.path.join(get_project_root(), "logs")
 
-def print_success(message: str) -> None:
-    """Print a success message."""
-    print(f"{message}")
-
-def print_error(message: str) -> None:
-    """Print an error message."""
-    print(f"{message}")
-
-def print_warning(message: str) -> None:
-    """Print a warning message."""
-    print(f"{message}")
-
-def print_info(message: str) -> None:
-    """Print an info message."""
-    print(f"ℹ️ {message}")
 
 def print_progress(current: int, total: int, description: str = "Progress") -> None:
     """Print a progress bar."""

@@ -6,12 +6,10 @@ to get better, more realistic moral foundation scores.
 """
 
 import pandas as pd
-import numpy as np
-from pathlib import Path
 import warnings
 
 from moral_value_classifier import MoralValueClassifier
-from utils import load_csv_data, save_csv_data, print_success, print_error, print_info
+from utils import load_csv_data, save_csv_data
 
 warnings.filterwarnings('ignore')
 
@@ -30,19 +28,19 @@ class ProjectReprocessor:
         self.projects_csv_path = projects_csv_path
         
         # Load data
-        print_info("Loading projects data...")
+        print("Loading projects data...")
         self.projects_df = load_csv_data(projects_csv_path)
         
         # Initialize balanced moral value classifier
-        print_info("Loading balanced moral value classification model...")
+        print("Loading balanced moral value classification model...")
         self.moral_classifier = MoralValueClassifier("moral_foundations")
         
         # Get moral foundation names
         from constants import MORAL_FOUNDATIONS
         self.moral_foundation_names = [foundation["name"] for foundation in MORAL_FOUNDATIONS.values()]
         
-        print_success(f"Loaded {len(self.projects_df)} projects")
-        print_info(f"Using Moral Foundations: {', '.join(self.moral_foundation_names)}")
+        print(f"Loaded {len(self.projects_df)} projects")
+        print(f"Using Moral Foundations: {', '.join(self.moral_foundation_names)}")
     
     def reprocess_projects(self):
         """
@@ -53,7 +51,7 @@ class ProjectReprocessor:
         
         # Create backup
         backup_path = self.projects_csv_path.replace('.csv', '_before_balance.csv')
-        print_info(f"Creating backup at: {backup_path}")
+        print(f"Creating backup at: {backup_path}")
         self.projects_df.to_csv(backup_path, index=False)
         
         # Clear existing moral scores
@@ -117,15 +115,15 @@ class ProjectReprocessor:
         
             except Exception as e:
                 error_count += 1
-                print_error(f"Failed to process project '{project.get('name', 'Unknown')}': {e}")
+                print(f"Failed to process project '{project.get('name', 'Unknown')}': {e}")
                 continue
         
         # Save results
-        print_info("Saving reprocessed projects...")
+        print("Saving reprocessed projects...")
         self.projects_df.to_csv(self.projects_csv_path, index=False)
         
         # Summary
-        print_success(f"\nProject reprocessing completed!")
+        print(f"\nProject reprocessing completed!")
         print(f"   Total projects processed: {processed_count}")
         print(f"   Errors encountered: {error_count}")
         print(f"   Results saved to: {self.projects_csv_path}")
@@ -140,7 +138,7 @@ class ProjectReprocessor:
         missing_columns = [col for col in score_columns if col not in self.projects_df.columns]
         
         if missing_columns:
-            print_error(f"Missing moral score columns: {missing_columns}")
+            print(f"Missing moral score columns: {missing_columns}")
             return False
         
         # Check score ranges
@@ -230,12 +228,12 @@ def main():
     
     # Validate balance
     if reprocessor.validate_balance():
-        print_success("Balance validation passed!")
+        print("Balance validation passed!")
         
         # Show sample results
         reprocessor.show_sample_results(n=5)
     else:
-        print_error("Final balance validation failed!")
+        print("Final balance validation failed!")
 
 
 if __name__ == "__main__":

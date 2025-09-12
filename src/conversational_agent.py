@@ -6,15 +6,12 @@ and recommend participatory budget projects that align with their moral values.
 """
 
 import pandas as pd
-import numpy as np
-from pathlib import Path
-from typing import List, Dict, Tuple, Optional
+from typing import List, Dict
 import warnings
-from collections import Counter
 
 from moral_value_classifier import MoralValueClassifier
 from constants import MORAL_FOUNDATIONS
-from utils import load_csv_data, print_success, print_error, print_info
+from utils import load_csv_data
 
 warnings.filterwarnings('ignore')
 
@@ -34,11 +31,11 @@ class MoralValueProjectRecommender:
         self.projects_csv_path = projects_csv_path
         
         # Load data
-        print_info("Loading participatory budget projects...")
+        print("Loading participatory budget projects...")
         self.projects_df = load_csv_data(projects_csv_path)
         
         # Initialize moral value classifier
-        print_info("Loading moral value classification model...")
+        print("Loading moral value classification model...")
         self.moral_classifier = MoralValueClassifier("moral_foundations")
         
         # Create project mapping
@@ -50,9 +47,9 @@ class MoralValueProjectRecommender:
         # Get moral foundation names from constants
         self.moral_foundation_names = [foundation["name"] for foundation in MORAL_FOUNDATIONS.values()]
         
-        print_success(f"Agent initialized with {len(self.projects_df)} projects")
-        print_info(f"Available categories: {', '.join(self.available_categories)}")
-        print_info(f"Using Moral Foundations Theory: {', '.join(self.moral_foundation_names)}")
+        print(f"Agent initialized with {len(self.projects_df)} projects")
+        print(f"Available categories: {', '.join(self.available_categories)}")
+        print(f"Using Moral Foundations Theory: {', '.join(self.moral_foundation_names)}")
     
     def analyze_user_moral_values(self, user_input: str) -> Dict:
         """
@@ -70,7 +67,7 @@ class MoralValueProjectRecommender:
         result = self.moral_classifier.classify_moral_foundations(user_input)
         
         if "error" in result:
-            print_error(f"Failed to analyze moral values: {result['error']}")
+            print(f"Failed to analyze moral values: {result['error']}")
             return {}
         
         print(f"Detected moral values:")
@@ -370,9 +367,9 @@ class MoralValueProjectRecommender:
         # Generate recommendation summary
         if matching_projects:
             dominant_foundation = preferences['moral_values'].get('dominant_foundation', 'Unknown')
-            print_success(f"Found {len(matching_projects)} projects matching your {dominant_foundation} values!")
+            print(f"Found {len(matching_projects)} projects matching your {dominant_foundation} values!")
         else:
-            print_error("No projects found matching your preferences.")
+            print("No projects found matching your preferences.")
         
         return {
             'preferences': preferences,
@@ -420,7 +417,7 @@ class MoralValueProjectRecommender:
                         print(f"   Target: {project['target']}")
                         print(f"   Moral Alignment: {project['moral_alignment']}")
                         print(f"   Match Score: {project['score']:.3f}")
-                        print(f"   Description: {project['description'][:150]}...")
+                        print(f"   Description: {project['description']}")
                 
                 print(f"\nAnalyzed {results['total_projects_analyzed']} total projects")
                 
@@ -428,7 +425,7 @@ class MoralValueProjectRecommender:
                 print("\n\nGoodbye!")
                 break
             except Exception as e:
-                print_error(f"Error processing your request: {e}")
+                print(f"Error processing your request: {e}")
 
 
 def main():
