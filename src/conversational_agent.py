@@ -8,6 +8,7 @@ and recommend participatory budget projects that align with their moral values.
 import pandas as pd
 from typing import List, Dict
 import warnings
+import os
 
 from moral_value_classifier import MoralValueClassifier
 from constants import MORAL_FOUNDATIONS
@@ -21,12 +22,13 @@ class MoralValueProjectRecommender:
     users' moral values detected through Moral Foundations Theory analysis.
     """
     
-    def __init__(self, projects_csv_path: str = "data/generated/content.csv"):
+    def __init__(self, projects_csv_path: str = "data/generated/balanced_synthetic_projects.csv", use_finetuned: bool = True):
         """
         Initialize the moral value-based project recommender.
         
         Args:
             projects_csv_path: Path to the projects CSV file
+            use_finetuned: Whether to use fine-tuned model if available
         """
         self.projects_csv_path = projects_csv_path
         
@@ -36,7 +38,11 @@ class MoralValueProjectRecommender:
         
         # Initialize moral value classifier
         print("Loading moral value classification model...")
-        self.moral_classifier = MoralValueClassifier("moral_foundations")
+        self.moral_classifier = MoralValueClassifier("roberta-large-mnli")
+        
+        # Try to load fine-tuned model if requested
+        if use_finetuned:
+            self._load_finetuned_model()
         
         # Create project mapping
         self.projects_dict = self.projects_df.set_index('project_id').to_dict('index')
@@ -51,6 +57,32 @@ class MoralValueProjectRecommender:
         print(f"Available categories: {', '.join(self.available_categories)}")
         print(f"Using Moral Foundations Theory: {', '.join(self.moral_foundation_names)}")
     
+    def _load_finetuned_model(self):
+        """Try to load the latest fine-tuned model."""
+        models_dir = 'models'
+        if not os.path.exists(models_dir):
+            print("No models directory found. Using zero-shot model.")
+            return
+        
+        # Find the latest model
+        model_dirs = [d for d in os.listdir(models_dir) if d.startswith('moral_value_roberta_mftc_')]
+        if not model_dirs:
+            print("No fine-tuned models found. Using zero-shot model.")
+            return
+        
+        latest_model = sorted(model_dirs)[-1]
+        model_path = os.path.join(models_dir, latest_model, 'final_model')
+        
+        try:
+            print(f"Loading fine-tuned model from: {model_path}")
+            self.moral_classifier.load_finetuned_model(model_path)
+            self.use_finetuned = True
+            print("Fine-tuned model loaded successfully!")
+        except Exception as e:
+            print(f"Failed to load fine-tuned model: {e}")
+            print("Falling back to zero-shot model.")
+            self.use_finetuned = False
+    
     def analyze_user_moral_values(self, user_input: str) -> Dict:
         """
         Analyze user input to extract moral values using Moral Foundations Theory.
@@ -63,8 +95,11 @@ class MoralValueProjectRecommender:
         """
         print(f"\nAnalyzing user input: '{user_input}'")
         
-        # Use the moral value classifier
-        result = self.moral_classifier.classify_moral_foundations(user_input)
+        # Use the appropriate classifier (fine-tuned or zero-shot)
+        if hasattr(self, 'use_finetuned') and self.use_finetuned:
+            result = self.moral_classifier.classify_with_finetuned(user_input)
+        else:
+            result = self.moral_classifier.classify_moral_foundations(user_input)
         
         if "error" in result:
             print(f"Failed to analyze moral values: {result['error']}")
@@ -120,29 +155,38 @@ class MoralValueProjectRecommender:
         }
     
     def _extract_category_preferences(self, text: str) -> List[str]:
-        """Extract category preferences from text using keyword matching."""
+        """Extract category preferences from text using balanced keyword matching."""
         text_lower = text.lower()
         preferences = []
         
-        # Define keywords for each category
+        # Define keywords for each category - BALANCED and more specific
         category_keywords = {
-            "Education": ['education', 'learning', 'school', 'students', 'training', 'skills', 'knowledge'],
-            "Health": ['health', 'healthcare', 'medical', 'wellness', 'fitness', 'mental health', 'care'],
-            "Environment, public health & safety": ['environment', 'environmental', 'safety', 'health', 'pollution', 'air quality', 'green'],
-            "Facilities, parks & recreation": ['parks', 'recreation', 'facilities', 'playground', 'sports', 'fitness', 'leisure'],
-            "Streets, Sidewalks & Transit": ['streets', 'sidewalks', 'transit', 'transportation', 'traffic', 'walking', 'biking'],
-            "urban greenery": ['greenery', 'trees', 'plants', 'green space', 'nature', 'forest', 'garden'],
-            "sport": ['sports', 'athletics', 'fitness', 'exercise', 'training', 'competition'],
-            "public space": ['public space', 'plaza', 'square', 'gathering', 'community space'],
-            "public transit and roads": ['transit', 'roads', 'transportation', 'buses', 'trains', 'infrastructure'],
-            "welfare": ['welfare', 'social services', 'support', 'assistance', 'help', 'community'],
-            "environmental protection": ['environmental protection', 'conservation', 'sustainability', 'climate', 'wildlife', 'environment', 'environmental'],
-            "culture": ['culture', 'cultural', 'arts', 'heritage', 'tradition', 'creative'],
-            "Culture & community": ['community', 'culture', 'social', 'neighborhood', 'togetherness']
+            "Education": ['education', 'learning', 'school', 'students', 'training', 'skills', 'knowledge', 'teach', 'teaching', 'literacy', 'academic', 'curriculum', 'classroom', 'tutoring', 'mentoring', 'library', 'books', 'reading'],
+            "Health": ['health', 'healthcare', 'medical', 'wellness', 'mental health', 'vaccination', 'clinic', 'hospital', 'doctor', 'nurse', 'therapy', 'treatment', 'medicine', 'preventive care', 'nutrition', 'diet', 'fitness', 'exercise', 'safety'],
+            "Environment, public health & safety": ['safety', 'security', 'emergency', 'preparedness', 'disaster', 'hazardous', 'lead', 'contamination', 'monitoring', 'air quality', 'water quality', 'soil', 'abatement', 'pollution', 'waste', 'cleanup'],
+            "Facilities, parks & recreation": ['parks', 'recreation', 'facilities', 'playground', 'leisure', 'outdoor', 'pool', 'splash', 'park', 'recreational', 'amenities', 'community center', 'benches', 'tables', 'picnic'],
+            "Streets, Sidewalks & Transit": ['streets', 'sidewalks', 'transit', 'transportation', 'traffic', 'walking', 'biking', 'pedestrian', 'curb', 'ramp', 'accessibility', 'mobility', 'crossing', 'road', 'highway', 'bridge', 'walkable'],
+            "urban greenery": ['greenery', 'trees', 'plants', 'green space', 'nature', 'forest', 'garden', 'canopy', 'vegetation', 'landscaping', 'green roof', 'rain garden', 'tree planting'],
+            "sport": ['sports', 'athletics', 'fitness', 'exercise', 'training', 'competition', 'team', 'league', 'field', 'court', 'equipment', 'adaptive sports', 'tennis', 'soccer', 'basketball', 'swimming', 'basketball court'],
+            "public space": ['public space', 'plaza', 'square', 'gathering', 'community space', 'downtown', 'bench', 'seating', 'wayfinding', 'signage', 'marketplace', 'civic', 'toilet', 'restroom'],
+            "public transit and roads": ['transit', 'roads', 'transportation', 'buses', 'trains', 'infrastructure', 'bus shelter', 'bike lane', 'pedestrian', 'accessibility', 'real-time', 'app', 'metro', 'subway', 'monitors'],
+            "welfare": ['welfare', 'social services', 'assistance', 'help', 'food', 'backpack', 'diaper', 'formula', 'emergency', 'shelter', 'voucher', 'low-income', 'poverty', 'homeless', 'charity', 'donation', 'laundry'],
+            "environmental protection": ['environmental protection', 'conservation', 'sustainability', 'climate', 'wildlife', 'environment', 'environmental', 'green', 'eco', 'renewable', 'clean energy', 'pollution', 'waste reduction', 'recycling', 'carbon', 'energy conversion'],
+            "culture": ['culture', 'cultural', 'arts', 'heritage', 'tradition', 'creative', 'art', 'music', 'festival', 'performance', 'theater', 'museum', 'gallery', 'artist', 'exhibition', 'concert'],
+            "Culture & community": ['community', 'togetherness', 'neighborhood', 'local', 'multicultural', 'diversity', 'storytelling', 'oral history', 'community center', 'gathering', 'celebration', 'social', 'unity', 'bonds']
         }
         
+        # Count keyword matches for each category
+        category_scores = {}
         for category, keywords in category_keywords.items():
-            if any(keyword in text_lower for keyword in keywords):
+            score = sum(1 for keyword in keywords if keyword in text_lower)
+            if score > 0:
+                category_scores[category] = score
+        
+        # Return categories with scores above threshold (more balanced)
+        threshold = 1  # Require at least 1 keyword match
+        for category, score in category_scores.items():
+            if score >= threshold:
                 preferences.append(category)
         
         return preferences
@@ -210,10 +254,75 @@ class MoralValueProjectRecommender:
             # Start with moral alignment score
             score = self._calculate_moral_alignment_score(project, user_moral_scores)
             
-            # Apply category preference bonus
+            # Apply category preference bonus - BALANCED weights to prevent overfitting
             if preferences.get('category_preferences'):
                 if project['category'] in preferences['category_preferences']:
-                    score *= 1.2  # 20% bonus for category match
+                    score *= 2.0  # Reduced from 3.5 to 2.0 for more balanced matching
+                    
+                    # Additional bonus for exact keyword matches
+                    user_input_lower = preferences.get('raw_input', '').lower()
+                    project_name_lower = project['name'].lower()
+                    project_desc_lower = project['description'].lower()
+                    
+                    # Check for specific keyword matches in project name/description
+                    category_keywords = {
+                        "Education": ['education', 'learning', 'school', 'students', 'training', 'skills', 'knowledge', 'teach', 'teaching', 'literacy', 'academic', 'curriculum', 'classroom', 'tutoring', 'mentoring'],
+                        "Health": ['health', 'healthcare', 'medical', 'wellness', 'mental health', 'vaccination', 'clinic', 'hospital', 'doctor', 'nurse', 'therapy', 'treatment', 'medicine', 'preventive care', 'nutrition', 'diet'],
+                        "Environment, public health & safety": ['safety', 'security', 'emergency', 'preparedness', 'disaster', 'hazardous', 'lead', 'contamination', 'monitoring', 'air quality', 'water quality', 'soil', 'abatement'],
+                        "Facilities, parks & recreation": ['parks', 'recreation', 'facilities', 'playground', 'leisure', 'outdoor', 'pool', 'splash', 'park', 'recreational', 'amenities', 'community center'],
+                        "Streets, Sidewalks & Transit": ['streets', 'sidewalks', 'transit', 'transportation', 'traffic', 'walking', 'biking', 'pedestrian', 'curb', 'ramp', 'accessibility', 'mobility', 'crossing'],
+                        "sport": ['sports', 'athletics', 'fitness', 'exercise', 'training', 'competition', 'team', 'league', 'field', 'court', 'equipment', 'adaptive sports', 'tennis', 'soccer', 'basketball'],
+                        "public transit and roads": ['transit', 'roads', 'transportation', 'buses', 'trains', 'infrastructure', 'bus shelter', 'bike lane', 'pedestrian', 'accessibility', 'real-time', 'app'],
+                        "welfare": ['welfare', 'social services', 'assistance', 'help', 'food', 'backpack', 'diaper', 'formula', 'emergency', 'shelter', 'voucher', 'low-income', 'poverty', 'homeless'],
+                        "environmental protection": ['environmental protection', 'conservation', 'sustainability', 'climate', 'wildlife', 'environment', 'environmental', 'green', 'eco', 'renewable', 'clean energy', 'pollution', 'waste reduction', 'recycling'],
+                        "culture": ['culture', 'cultural', 'arts', 'heritage', 'tradition', 'creative', 'art', 'music', 'festival', 'performance', 'theater', 'museum', 'gallery', 'artist'],
+                        "Culture & community": ['community', 'togetherness', 'neighborhood', 'local', 'multicultural', 'diversity', 'storytelling', 'oral history', 'community center', 'gathering', 'celebration']
+                    }
+                    
+                    # Check for keyword matches in project details
+                    project_category_keywords = category_keywords.get(project['category'], [])
+                    keyword_matches = 0
+                    for keyword in project_category_keywords:
+                        if keyword in project_name_lower or keyword in project_desc_lower:
+                            keyword_matches += 1
+                    
+                    # Additional bonus for keyword matches - REDUCED to prevent overfitting
+                    if keyword_matches > 0:
+                        score *= (1.0 + keyword_matches * 0.15)  # Reduced from 0.3 to 0.15
+                    
+                    # Position-based bonus for high-priority project types
+                    priority_keywords = {
+                        "Education": ['education', 'learning', 'school', 'students', 'literacy', 'academic'],
+                        "Health": ['health', 'healthcare', 'medical', 'wellness', 'clinic', 'vaccination'],
+                        "environmental protection": ['environmental', 'conservation', 'sustainability', 'green', 'eco'],
+                        "Culture & community": ['community', 'culture', 'arts', 'heritage', 'festival'],
+                        "sport": ['sports', 'athletics', 'fitness', 'exercise', 'recreation'],
+                        "Facilities, parks & recreation": ['parks', 'recreation', 'facilities', 'playground']
+                    }
+                    
+                    # Check for high-priority keywords in project name/description
+                    project_category = project['category']
+                    priority_words = priority_keywords.get(project_category, [])
+                    priority_matches = 0
+                    for word in priority_words:
+                        if word in project_name_lower or word in project_desc_lower:
+                            priority_matches += 1
+                    
+                    # Additional bonus for priority keyword matches - REDUCED
+                    if priority_matches > 0:
+                        score *= (1.0 + priority_matches * 0.1)  # Reduced from 0.25 to 0.1
+                    
+                    # Semantic similarity bonus - check for prompt keywords in project details
+                    prompt_words = user_input_lower.split()
+                    semantic_matches = 0
+                    for word in prompt_words:
+                        if len(word) > 3:  # Only consider words longer than 3 characters
+                            if word in project_name_lower or word in project_desc_lower:
+                                semantic_matches += 1
+                    
+                    # Bonus for semantic matches - REDUCED
+                    if semantic_matches > 0:
+                        score *= (1.0 + semantic_matches * 0.08)  # Reduced from 0.15 to 0.08
             
             # Apply demographic target bonus
             if preferences.get('demographic_targets'):
@@ -243,78 +352,123 @@ class MoralValueProjectRecommender:
                 'moral_alignment': self._get_moral_alignment_explanation(project, user_moral_scores)
             })
         
-        # Sort by score and return top N
+        # Sort by score and return top N with diversity consideration
         project_scores.sort(key=lambda x: x['score'], reverse=True)
-        return project_scores[:top_n]
+        
+        # Apply diversity mechanism to prevent overfitting to same projects
+        diverse_results = []
+        used_categories = set()
+        
+        # First pass: select best project from each category
+        for project in project_scores:
+            if len(diverse_results) >= top_n:
+                break
+            if project['category'] not in used_categories:
+                diverse_results.append(project)
+                used_categories.add(project['category'])
+        
+        # Second pass: fill remaining slots with highest scoring projects
+        for project in project_scores:
+            if len(diverse_results) >= top_n:
+                break
+            if project not in diverse_results:
+                diverse_results.append(project)
+        
+        return diverse_results[:top_n]
     
     def _calculate_moral_alignment_score(self, project: pd.Series, user_moral_scores: Dict) -> float:
-        """Calculate how well a project aligns with user's moral values with improved balance."""
+        """Calculate how well a project aligns with user's moral values with balanced scoring."""
         score = 0.0
         
         # Get project category
         project_category = project.get('category', '').lower()
         
-        # Check if project has moral foundation scores
+        # Check if project has valid moral foundation scores
+        has_valid_scores = False
         for foundation_name in self.moral_foundation_names:
             score_column = f'moral_score_{foundation_name}'
-            if score_column in project:
-                project_score = project[score_column]
-                user_score = user_moral_scores.get(foundation_name, 0.0)
-                
-                # IMPROVED MORAL FOUNDATION SCORING
-                foundation_weight = 1.0
-                
-                # Boost relevant foundations based on query type
-                if any(keyword in self._get_user_input_keywords().lower() for keyword in ['education', 'learning', 'school', 'teach', 'student', 'equal opportunities', 'opportunities']):
-                    # Education queries
-                    if foundation_name == 'Fairness/Cheating':
-                        foundation_weight = 1.8
-                    elif foundation_name == 'Liberty/Oppression':
-                        foundation_weight = 1.6
-                    elif foundation_name == 'Care/Harm':
-                        foundation_weight = 1.2
-                elif any(keyword in self._get_user_input_keywords().lower() for keyword in ['environment', 'environmental', 'sustainability', 'conservation', 'climate', 'wildlife', 'green']):
-                    # Environmental queries
-                    if foundation_name == 'Sanctity/Degradation':
-                        foundation_weight = 1.8  # Boost sanctity for environmental protection
-                    elif foundation_name == 'Care/Harm':
-                        foundation_weight = 1.6  # Boost care for environmental protection
-                    elif foundation_name == 'Authority/Subversion':
-                        foundation_weight = 1.4  # Boost authority for environmental regulation
-                
-                # Calculate alignment with foundation weighting
-                if project_score > 0.7 and user_score > 0.4:
-                    alignment = project_score * user_score * 1.5 * foundation_weight
-                elif project_score > 0.5 and user_score > 0.3:
-                    alignment = project_score * user_score * 1.2 * foundation_weight
-                else:
-                    alignment = project_score * user_score * foundation_weight
-                
-                score += alignment
+            if score_column in project and project[score_column] > 0:
+                has_valid_scores = True
+                break
         
-        # CATEGORY BOOSTING - Give significant weight to category matching
-        category_boost = 1.0
+        if has_valid_scores:
+            # Use moral foundation scores if available
+            for foundation_name in self.moral_foundation_names:
+                score_column = f'moral_score_{foundation_name}'
+                if score_column in project:
+                    project_score = project[score_column]
+                    user_score = user_moral_scores.get(foundation_name, 0.0)
+                    
+                    # BALANCED MORAL FOUNDATION SCORING - Remove hardcoded biases
+                    foundation_weight = 1.0
+                    
+                    # Only apply moderate boosts based on general query patterns, not specific keywords
+                    user_input_lower = self._get_user_input_keywords().lower()
+                    
+                    # General pattern matching with reduced bias
+                    if any(pattern in user_input_lower for pattern in ['education', 'learning', 'school', 'student']):
+                        # Education queries - moderate boost only
+                        if foundation_name == 'Fairness/Cheating':
+                            foundation_weight = 1.3  # Reduced from 1.8
+                        elif foundation_name == 'Care/Harm':
+                            foundation_weight = 1.2  # Reduced from 1.6
+                    elif any(pattern in user_input_lower for pattern in ['environment', 'environmental', 'sustainability', 'green']):
+                        # Environmental queries - moderate boost only
+                        if foundation_name == 'Sanctity/Degradation':
+                            foundation_weight = 1.3  # Reduced from 1.8
+                        elif foundation_name == 'Care/Harm':
+                            foundation_weight = 1.6  # Boost care for environmental protection
+                        elif foundation_name == 'Authority/Subversion':
+                            foundation_weight = 1.4  # Boost authority for environmental regulation
+                    
+                    # Calculate weighted score
+                    weighted_score = project_score * user_score * foundation_weight
+                    score += weighted_score
+        else:
+            # FALLBACK: Use category-based scoring when moral scores are invalid
+            score = self._calculate_category_based_score(project, user_moral_scores)
         
-        # Education-related queries
-        if any(keyword in self._get_user_input_keywords().lower() for keyword in ['education', 'learning', 'school', 'teach', 'student', 'equal opportunities', 'opportunities']):
+        return max(score, 0.1)  # Ensure minimum score
+    
+    def _calculate_category_based_score(self, project: pd.Series, user_moral_scores: Dict) -> float:
+        """Fallback scoring based on category and project content when moral scores are invalid."""
+        score = 0.5  # Base score
+        
+        project_category = project.get('category', '').lower()
+        project_name = project.get('name', '').lower()
+        project_desc = project.get('description', '').lower()
+        user_input_lower = self._get_user_input_keywords().lower()
+        
+        # Category matching bonus
+        if any(keyword in user_input_lower for keyword in ['education', 'learning', 'school', 'student']):
             if 'education' in project_category:
-                category_boost = 2.5  # Major boost for education projects
-            elif any(edu_keyword in project_category for edu_keyword in ['culture', 'arts', 'music', 'science']):
-                category_boost = 1.8  # Good boost for related categories
+                score += 0.3
+        elif any(keyword in user_input_lower for keyword in ['recreation', 'parks', 'sports', 'leisure']):
+            if any(cat in project_category for cat in ['recreation', 'sport', 'facilities']):
+                score += 0.3
+        elif any(keyword in user_input_lower for keyword in ['transit', 'transportation', 'walking', 'biking']):
+            if any(cat in project_category for cat in ['transit', 'roads', 'sidewalks']):
+                score += 0.3
+        elif any(keyword in user_input_lower for keyword in ['environment', 'environmental', 'green', 'sustainability']):
+            if any(cat in project_category for cat in ['environment', 'protection']):
+                score += 0.3
+        elif any(keyword in user_input_lower for keyword in ['culture', 'cultural', 'community', 'arts']):
+            if any(cat in project_category for cat in ['culture', 'community']):
+                score += 0.3
+        elif any(keyword in user_input_lower for keyword in ['health', 'healthcare', 'wellness', 'medical']):
+            if 'health' in project_category:
+                score += 0.3
+        elif any(keyword in user_input_lower for keyword in ['public space', 'amenities', 'livable']):
+            if 'public space' in project_category:
+                score += 0.3
         
-        # Environmental-related queries
-        elif any(keyword in self._get_user_input_keywords().lower() for keyword in ['environment', 'environmental', 'sustainability', 'conservation', 'climate', 'wildlife', 'green']):
-            if any(env_keyword in project_category for env_keyword in ['environment', 'environmental', 'protection', 'sustainability']):
-                category_boost = 2.5  # Major boost for environmental projects
-            elif any(env_keyword in project_category for env_keyword in ['parks', 'greenery', 'nature', 'conservation']):
-                category_boost = 2.0  # Good boost for nature-related categories
+        # Keyword matching bonus
+        keyword_matches = 0
+        for word in user_input_lower.split():
+            if len(word) > 3 and (word in project_name or word in project_desc):
+                keyword_matches += 1
         
-        # Apply category boost
-        score *= category_boost
-        
-        # Add base score for having any moral foundation alignment
-        if score > 0:
-            score += 0.01  # Small base score to differentiate from zero
+        score += keyword_matches * 0.1
         
         return score
     
