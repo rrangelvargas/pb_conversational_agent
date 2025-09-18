@@ -13,8 +13,17 @@ from datetime import datetime
 import os
 from collections import defaultdict, Counter
 
-# Twitter API credentials (should be set in environment or config)
-BEARER_TOKEN = 'AAAAAAAAAAAAAAAAAAAAAEHu4AEAAAAA%2Fkm%2B6TmDldyWwfrG9Xsp5WGp3Po%3DZqdQjus1CY0xe73n0K1Vl5iKrQJKu52k7TPQeWvFKTN9mbsSgL'
+# Import credentials
+try:
+    from credentials import TWITTER_BEARER_TOKEN, MAX_REQUESTS_PER_CYCLE, WAIT_TIME_MINUTES
+except ImportError:
+    print("❌ Error: credentials.py not found!")
+    print("Please create credentials.py with your Twitter API credentials.")
+    print("See credentials.py.example for reference.")
+    sys.exit(1)
+
+# Twitter API credentials
+BEARER_TOKEN = TWITTER_BEARER_TOKEN
 
 def call_twitter_api_v2(tweet_id):
     """
@@ -246,11 +255,11 @@ def save_extracted_data(extracted_data):
 
 def balanced_extraction():
     """
-    Continuously extract tweets, making up to 15 requests every 15 minutes,
+    Continuously extract tweets, making up to {MAX_REQUESTS_PER_CYCLE} requests every {WAIT_TIME_MINUTES} minutes,
     saving progress incrementally and prioritizing underrepresented moral foundations.
     """
     print("Starting balanced tweet extraction...")
-    print("This will run indefinitely, making up to 15 requests every 15 minutes")
+    print(f"This will run indefinitely, making up to {MAX_REQUESTS_PER_CYCLE} requests every {WAIT_TIME_MINUTES} minutes")
     print("Press Ctrl+C to stop")
     
     mftc_data = load_mftc_data()
@@ -332,7 +341,7 @@ def balanced_extraction():
             
             # Process up to 15 tweets per cycle
             tweets_this_cycle = 0
-            max_tweets_per_cycle = 15
+            max_tweets_per_cycle = MAX_REQUESTS_PER_CYCLE
             
             for candidate in tweet_candidates:
                 if tweets_this_cycle >= max_tweets_per_cycle:
@@ -394,13 +403,14 @@ def balanced_extraction():
             for foundation, count in current_distribution.items():
                 percentage = (count / total_tweets * 100) if total_tweets > 0 else 0
                 print(f"  {foundation}: {count} ({percentage:.1f}%)")
-            print(f"Waiting 15 minutes until next cycle...")
+            print(f"Waiting {WAIT_TIME_MINUTES} minutes until next cycle...")
             
-            # Wait 15 minutes until next cycle
-            for i in range(900):
+            # Wait until next cycle
+            wait_seconds = WAIT_TIME_MINUTES * 60
+            for i in range(wait_seconds):
                 time.sleep(1)
                 if i % 60 == 0 and i > 0:  # Print every minute
-                    remaining = 900 - i
+                    remaining = wait_seconds - i
                     print(f"Waiting... {remaining} seconds remaining")
     
     except KeyboardInterrupt:

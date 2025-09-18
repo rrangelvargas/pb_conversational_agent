@@ -228,3 +228,5 @@ results/
 
 # Models
 models/
+
+credentials.py
