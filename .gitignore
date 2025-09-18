@@ -230,3 +230,4 @@ results/
 models/
 
 credentials.py
+*.txt
