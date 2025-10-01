@@ -1,107 +1,117 @@
 """
-Constants for the moral reasoning value extraction system.
+Constants for the moral reasoning value extraction system
+and project recommendation system.
 """
 
-# Comprehensive Moral Foundations Theory data structure
-MORAL_FOUNDATIONS = {
-    "care_harm": {
-        "name": "Care/Harm",
-        "description": "Promoting well-being and avoiding harm to others",
-        "positive_keywords": ["care", "protect", "nurture", "help", "compassion", "kindness", "empathy", "safety", "wellbeing", "heal", "comfort", "support"],
-        "negative_keywords": ["harm", "hurt", "damage", "injure", "abuse", "neglect", "cruelty", "violence", "suffering", "pain", "danger"]
-    },
-    "fairness_cheating": {
-        "name": "Fairness/Cheating",
-        "description": "Justice, equality, and fair treatment",
-        "positive_keywords": ["fair", "just", "equal", "rights", "justice", "honest", "truthful", "equitable", "impartial", "balanced", "deserved"],
-        "negative_keywords": ["unfair", "cheat", "lie", "deceive", "discriminate", "bias", "corrupt", "unjust", "unequal", "dishonest", "favoritism"]
-    },
-    "loyalty_betrayal": {
-        "name": "Loyalty/Betrayal",
-        "description": "Trust, commitment, and allegiance to groups",
-        "positive_keywords": ["loyal", "faithful", "trust", "commitment", "allegiance", "dedication", "devotion", "reliable", "steadfast", "patriotic", "teamwork"],
-        "negative_keywords": ["betray", "treason", "disloyal", "unfaithful", "traitor", "abandon", "desert", "backstab", "deceit", "treachery"]
-    },
-    "authority_subversion": {
-        "name": "Authority/Subversion",
-        "description": "Respect for legitimate authority and hierarchy",
-        "positive_keywords": ["authority", "respect", "obey", "leadership", "hierarchy", "command", "order", "discipline", "tradition", "custom", "rule"],
-        "negative_keywords": ["disobey", "rebel", "subvert", "disrespect", "defy", "chaos", "anarchy", "insubordination", "lawlessness", "disorder"]
-    },
-    "sanctity_degradation": {
-        "name": "Sanctity/Degradation",
-        "description": "Purity, sacredness, and spiritual values",
-        "positive_keywords": ["sacred", "pure", "holy", "spiritual", "divine", "revered", "blessed", "clean", "innocent", "virtuous", "noble"],
-        "negative_keywords": ["degrading", "vulgar", "profane", "corrupt", "impure", "sinful", "filthy", "defiled", "contaminated", "desecrated"]
-    },
-    "liberty_oppression": {
-        "name": "Liberty/Oppression",
-        "description": "Freedom, autonomy, and independence",
-        "positive_keywords": ["freedom", "liberty", "autonomy", "independence", "choice", "rights", "empower", "liberate", "self-determination", "sovereignty"],
-        "negative_keywords": ["oppress", "restrict", "control", "enslave", "dominate", "tyranny", "subjugate", "coerce", "force", "constrain"]
-    }
-}
-
-# Additional value categories
-VALUE_CATEGORIES = [
-    "Justice", "Compassion", "Honesty", "Respect", "Responsibility",
-    "Courage", "Integrity", "Generosity", "Forgiveness", "Humility"
+# List of moral foundation names
+MORAL_FOUNDATIONS = [
+    "Authority",
+    "Care", 
+    "Fairness",
+    "Loyalty",
+    "Non-Moral",
+    "Sanctity"
 ]
 
-# Default model configuration
-DEFAULT_MODEL_NAME = "moralstories/roberta-large_action-context-consequence"
-DEFAULT_THRESHOLD = 0.5
-DEFAULT_TOP_K = 5
+MORAL_FOUNDATIONS_TO_USE = [
+    "Authority",
+    "Care", 
+    "Fairness",
+    "Loyalty",
+    "Sanctity"
+]
 
-# Keyword mappings for moral foundations
-MORAL_FOUNDATION_KEYWORDS = {
-    "Care/Harm": ['care', 'harm', 'hurt', 'protect', 'nurture', 'damage', 'safety', 'wellbeing'],
-    "Fairness/Cheating": ['fair', 'unfair', 'cheat', 'equal', 'justice', 'rights', 'discrimination'],
-    "Loyalty/Betrayal": ['loyal', 'betray', 'trust', 'faithful', 'treason', 'commitment', 'allegiance'],
-    "Authority/Subversion": ['authority', 'obey', 'respect', 'disobey', 'leadership', 'hierarchy', 'command'],
-    "Sanctity/Degradation": ['sacred', 'pure', 'holy', 'degrading', 'vulgar', 'profane', 'spiritual'],
-    "Liberty/Oppression": ['freedom', 'liberty', 'oppress', 'restrict', 'autonomy', 'independence', 'control']
+# Category keywords for classification and matching
+CATEGORY_KEYWORDS = {
+    "Education": [
+        'education', 'educational', 'workshops', 'school', 'classes', 'integration', 'social', 'library', 'english', 'youth', 
+        'primary', 'reading', 'learning', 'students', 'parents', 'books', 'schools', 
+        'equipment', 'training', 'children', 'instruction', 'college', 'high school', 'mentoring', 'writing',
+        'diploma', 'curriculum', 'university', 'courses', 'parent', 'math', 'steam', 'kindergarten',
+        'secondary', 'young', 'course', 'parenting', 'literate', 'tutoring', 'scholarship', 'literacy', 'knowledge',
+        'learn', 'classroom', 'classrooms', 'class'
+    ],
+    "Environment, Public heath and Safety": [
+        'health', 'medical', 'safety', 'meadow', 'greenery', 'protect', 'park', 'planting', 'garden', 'shrubs', 'protection', 'green', 
+        'eco', 'forest', 'birds', 'trees', 'compassion', 'reduce', 'revitalization', 'treatment', 'habitat', 
+        'preparedness', 'assistance', 'chronic', 'safe', 'medicine', 'wellness', 'emergency', 'ecosystem', 
+        'landfill', 'pharmacy', 'fitness', 'infection', 'pollution', 'illness', 'medication', 'vaccines', 
+        'vaccinations', 'air quality', 'monitoring', 'environmental', 'sustainability', 'solar', 'energy', 
+        'waste', 'reduction', 'recycling', 'composting', 'roof', 'efficiency', 'stormwater', 'runoff', 
+        'heat island', 'shade', 'aesthetics', 'need'
+    ],
+    "Culture and Community": [
+        'community', 'culture', 'cultural', 'events', 'meetings', 'benches', 'lighting', 'care', 'promotes', 'recreation', 'gym', 
+        'women', 'kindness', 'outdoor', 'people', 'modernization', 'revitalization', 'children', 'local', 
+        'traditional', 'parent', 'gatherings', 'assistance', 'museum', 'society', 'social', 'exhibit', 
+        'theater', 'youth', 'resident', 'exhibition', 'groups', 'festival', 'services', 'unity', 'festivals', 
+        'organization', 'gathering', 'communities', 'center', 'cultural center', 'diversity' 'family', 'need'
+    ],
+    "Transportation": [
+        'transportation', 'safety', 'parking', 'crossing', 'bike', 'path', 'road', 'construction', 'surface', 'bicycle', 'safe', 
+        'streets', 'lighting', 'street', 'pavement', 'improving', 'improve', 'bus', 'traffic', 'pedestrian', 
+        'modernization', 'intersection', 'replacement', 'roads', 'ramps', 'signals', 'crossings', 
+        'marking', 'tunnel', 'cyclist', 'transport', 'lifts', 'stations', 'station', 'walkways', 'bicycles', 
+        'transit', 'garages', 'lots', 'lift', 'lane', 'sidewalk', 'repair', 'installation', 'accessibility'
+    ],
+    "Recreation": [
+        'recreation', 'programs', 'activities', 'playground', 'yoga', 'classes', 'tennis', 'workout', 'park', 'fitness', 'seniors',
+        'gym', 'outdoor', 'sports', 'family', 'equipment', 'training', 'children', 'volleyball', 
+        'lessons', 'indoors', 'splash pad', 'gear', 'leisure', 'center', 'tables', 'activity', 'picnicking',
+        'materials', 'fields', 'barbecue', 'water', 'fun', 'playing', 'gymnasium', 'gymnasiums', 'swim', 'court', 
+        'playgrounds', 'recreational', 'leisure activities', 'sports equipment', 'playground equipment'
+    ],
+    "Other": [] # "Other" category has no keywords and is used as a fallback
 }
 
-# Keyword mappings for general values
-GENERAL_VALUE_KEYWORDS = {
-    "Justice": ['justice', 'fair', 'equality', 'rights', 'law', 'court'],
-    "Compassion": ['compassion', 'kindness', 'empathy', 'help', 'care', 'support'],
-    "Honesty": ['honest', 'truth', 'lie', 'deceive', 'transparent', 'sincere'],
-    "Respect": ['respect', 'dignity', 'honor', 'courtesy', 'polite', 'considerate'],
-    "Responsibility": ['responsibility', 'duty', 'obligation', 'accountable', 'liable']
+OPTIMAL_WEIGHTS = {
+    "synthetic": {"keyword": 7.0, "moral": 3.0},
+    "poland": {"keyword": 1.0, "moral": 9.0},
+    "worldwide": {"keyword": 6.0, "moral": 4.0}
 }
 
-# Confidence scores for keyword-based detection
-KEYWORD_CONFIDENCE_SCORES = {
-    "moral_foundations": 0.75,
-    "general_values": 0.8
-}
+# Paths to data files
+SYNTHETIC_DATA_PATH = "../data/balanced_synthetic_projects_with_moral_scores.csv"
+POLAND_DATA_PATH = "../data/poland_warszawa_projects_with_moral_scores.csv"
+WORLDWIDE_DATA_PATH = "../data/worldwide_mechanical_projects_with_moral_scores.csv"
 
-# Moral recommendations for different values
-MORAL_RECOMMENDATIONS = {
-    'Care/Harm': "Prioritize actions that promote well-being and avoid harm to others.",
-    'Fairness/Cheating': "Ensure equitable treatment and avoid exploiting others.",
-    'Loyalty/Betrayal': "Maintain commitments and trust in relationships.",
-    'Authority/Subversion': "Respect legitimate authority while questioning unjust practices.",
-    'Sanctity/Degradation': "Honor sacred aspects of life and avoid degradation.",
-    'Liberty/Oppression': "Support individual freedoms while preventing oppression.",
-    'Justice': "Strive for fairness and equal treatment for all.",
-    'Compassion': "Act with empathy and kindness toward others.",
-    'Honesty': "Maintain truthfulness and transparency in all actions.",
-    'Respect': "Treat others with dignity and consideration."
-}
+# Standardized categories list
+STANDARDIZED_CATEGORIES = [
+    "Education", 
+    "Environment, Public heath and Safety", 
+    "Culture and Community", 
+    "Transportation", 
+    "Recreation", 
+    "Other"
+]
 
-# Model configuration
-MODEL_CONFIG = {
-    "max_length": 512,
-    "truncation": True,
-    "padding": True
-}
-
-# Analysis thresholds
-ANALYSIS_THRESHOLDS = {
-    "high_confidence": 0.7,
-    "medium_confidence": 0.4,
-    "low_confidence": 0.3
+# Category mapping dictionary (case-insensitive)
+CATEGORY_MAPPING = {
+    # Warsaw Dataset Mappings
+    "public transit and roads": "Transportation",
+    "education": "Education", 
+    "education and science": "Education",
+    "culture": "Culture and Community",
+    "sport": "Recreation",
+    "sport and recreation": "Recreation", 
+    "public space": "Culture and Community",
+    "environmental protection": "Environment, Public heath and Safety",
+    "nature and greenery": "Environment, Public heath and Safety",
+    "urban greenery": "Environment, Public heath and Safety",
+    "community building": "Culture and Community",
+    "health and welfare": "Environment, Public heath and Safety",
+    "welfare": "Environment, Public heath and Safety",
+    "health": "Environment, Public heath and Safety",
+    
+    # Worldwide Dataset Mappings
+    "environment, public health & safety": "Environment, Public heath and Safety",
+    "culture & community": "Culture and Community",
+    "streets, sidewalks & transit": "Transportation",
+    "facilities, parks & recreation": "Recreation",
+    
+    "transportation": "Transportation",
+    "culture and community": "Culture and Community",
+    "recreation": "Recreation",
+    "environment, public heath and safety": "Environment, Public heath and Safety",
+    "other": "Other"
 }

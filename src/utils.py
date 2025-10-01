@@ -6,6 +6,7 @@ Common functions used across multiple scripts.
 import os
 import sys
 import pandas as pd
+import re
 from typing import Optional, Tuple
 import torch
 from transformers import AutoTokenizer, AutoModelForSequenceClassification
@@ -151,3 +152,40 @@ def print_progress(current: int, total: int, description: str = "Progress") -> N
     print(f"\r{description}: |{bar}| {percentage:.1f}% ({current}/{total})", end='')
     if current == total:
         print()
+
+def text_preprocessing(text: str) -> str:
+    """
+    Generic text preprocessing function for cleaning text data.
+    
+    Args:
+        text (str): Raw text to preprocess
+        
+    Returns:
+        str: Cleaned text with whitespace removal, lowercasing, and non-alphanumeric character removal
+    """
+    if not text or text.strip() == '':
+        return ""
+    
+    # Convert to lowercase
+    text = text.lower()
+    
+    # Remove URLs
+    text = re.sub(r'http[s]?://\S+', '', text)
+    
+    # Convert HTML entities to readable text
+    text = text.replace('&amp;', '&')
+    text = text.replace('&lt;', '<')
+    text = text.replace('&gt;', '>')
+    text = text.replace('&quot;', '"')
+    text = text.replace('&#39;', "'")
+    
+    # Remove non-alphanumeric characters except spaces
+    text = re.sub(r'[^a-z0-9\s]', '', text)
+    
+    # Remove extra whitespace and normalize spaces
+    text = re.sub(r'\s+', ' ', text)
+    
+    # Remove leading and trailing whitespace
+    text = text.strip()
+    
+    return text
