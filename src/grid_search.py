@@ -202,7 +202,7 @@ def main():
     print(results_df.head().to_string())
     
     best_params = results_df.iloc[0].to_dict()
-    print("\n🏆 Best Hyperparameters Found:")
+    print("\nBest Hyperparameters Found:")
     for key, value in best_params.items():
         if 'eval' not in key:
             print(f"   - {key}: {value}")

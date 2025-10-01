@@ -149,7 +149,7 @@ class FinalModelTrainer:
             shutil.rmtree(final_model_path)
         
         trainer.save_model(final_model_path)
-        print(f"✅ Final model for '{target_foundation}' saved to {final_model_path}")
+        print(f"Final model for '{target_foundation}' saved to {final_model_path}")
 
         if os.path.exists(training_args.output_dir):
             shutil.rmtree(training_args.output_dir)
